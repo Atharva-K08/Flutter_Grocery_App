@@ -2,7 +2,8 @@ class ApiConstants {
 
   // Change to 10.0.2.2 for Android emulator
   // Change to your local IP for real device e.g. http://192.168.1.5:5000/api
-  static const String baseUrl = "http://127.0.0.1:5000/api";
+  // static const String baseUrl = "http://127.0.0.1:5000/api";
+  static const String baseUrl = "https://flutter-grocery-app-backend.onrender.com/api";
 
   // Auth
   static const String register = "/users/register";
