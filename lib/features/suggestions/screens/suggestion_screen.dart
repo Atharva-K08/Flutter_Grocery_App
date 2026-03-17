@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../models/suggestion_model.dart';
-import '../../../models/item_model.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../suggestions/services/suggestion_service.dart';
 import '../../items/services/item_service.dart';
@@ -48,7 +47,6 @@ class _SuggestionScreenState extends State<SuggestionScreen> {
 
   /*
   LOCAL SEARCH FILTER
-  No API call on every keystroke — filters the already loaded list
   */
   void _onSearch(String value) {
     final query = value.toLowerCase().trim();
@@ -60,152 +58,156 @@ class _SuggestionScreenState extends State<SuggestionScreen> {
   }
 
   /*
-  QUANTITY DIALOG
-  Opens when user taps a suggestion — only asks for quantity
+  QUANTITY + UNIT DIALOG
   */
   void _showQuantityDialog(Suggestion suggestion) {
     final _quantityController = TextEditingController(
       text: suggestion.quantity.toString(),
     );
 
+    String _selectedUnit = suggestion.unit;
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
 
-        title: Text("Add to List"),
+          title: Text("Add to List"),
 
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
 
-            // Item name + unit badge
-            Row(
-              children: [
+              // Item name
+              Text(
+                suggestion.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
 
-                Expanded(
-                  child: Text(
-                    suggestion.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
+              SizedBox(height: 6),
+
+              Text(
+                "Used ${suggestion.usageCount}x",
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+
+              SizedBox(height: 20),
+
+              // Quantity row with +/- buttons
+              Row(
+                children: [
+
+                  IconButton(
+                    onPressed: () {
+                      final current =
+                          int.tryParse(_quantityController.text) ?? 1;
+                      if (current > 1) {
+                        _quantityController.text = (current - 1).toString();
+                      }
+                    },
+                    icon: Icon(Icons.remove_circle_outline),
+                    color: Colors.red,
+                  ),
+
+                  Expanded(
+                    child: TextField(
+                      controller: _quantityController,
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: "Quantity",
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                   ),
-                ),
 
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.green.shade200),
+                  IconButton(
+                    onPressed: () {
+                      final current =
+                          int.tryParse(_quantityController.text) ?? 1;
+                      _quantityController.text = (current + 1).toString();
+                    },
+                    icon: Icon(Icons.add_circle_outline),
+                    color: Colors.green,
                   ),
-                  child: Text(
-                    suggestion.unit,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.green.shade700,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
 
-              ],
-            ),
+                ],
+              ),
 
-            SizedBox(height: 6),
+              SizedBox(height: 16),
 
-            Text(
-              "Used ${suggestion.usageCount}x",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-
-            SizedBox(height: 20),
-
-            // Quantity input with +/- buttons
-            Row(
-              children: [
-
-                IconButton(
-                  onPressed: () {
-                    final current = int.tryParse(_quantityController.text) ?? 1;
-                    if (current > 1) {
-                      _quantityController.text = (current - 1).toString();
-                    }
-                  },
-                  icon: Icon(Icons.remove_circle_outline),
-                  color: Colors.red,
-                ),
-
-                Expanded(
-                  child: TextField(
-                    controller: _quantityController,
-                    textAlign: TextAlign.center,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: "Quantity",
-                      border: OutlineInputBorder(),
-                    ),
+              // Unit dropdown
+              DropdownButtonFormField<String>(
+                value: _selectedUnit,
+                decoration: InputDecoration(
+                  labelText: "Unit",
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
                   ),
                 ),
+                items: AppConstants.units.map((unit) {
+                  return DropdownMenuItem(
+                    value: unit,
+                    child: Text(unit),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setDialogState(() => _selectedUnit = val);
+                  }
+                },
+              ),
 
-                IconButton(
-                  onPressed: () {
-                    final current = int.tryParse(_quantityController.text) ?? 1;
-                    _quantityController.text = (current + 1).toString();
-                  },
-                  icon: Icon(Icons.add_circle_outline),
-                  color: Colors.green,
-                ),
+            ],
+          ),
 
-              ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Cancel"),
             ),
-
+            ElevatedButton(
+              onPressed: () {
+                final quantity =
+                    int.tryParse(_quantityController.text) ?? 1;
+                Navigator.pop(context);
+                _addItemFromSuggestion(suggestion, quantity, _selectedUnit);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: Text("Add to List"),
+            ),
           ],
+
         ),
-
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final quantity = int.tryParse(_quantityController.text) ?? 1;
-              Navigator.pop(context);
-              _addItemFromSuggestion(suggestion, quantity);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            child: Text("Add to List"),
-          ),
-        ],
-
       ),
     );
   }
 
   /*
-  ADD ITEM DIRECTLY FROM SUGGESTION
-  Uses suggestion's name and unit, only quantity comes from user
+  ADD ITEM FROM SUGGESTION
   */
   Future<void> _addItemFromSuggestion(
       Suggestion suggestion,
       int quantity,
+      String unit,
       ) async {
     try {
       await _itemService.createItem(
         name:     suggestion.name,
         quantity: quantity,
-        unit:     suggestion.unit,
+        unit:     unit,
       );
       _showSuccess("\"${suggestion.name}\" added to your list");
-
-      // reload to update usageCount
       _loadSuggestions();
-
     } catch (e) {
       _showError(e.toString());
     }
@@ -322,7 +324,6 @@ class _SuggestionScreenState extends State<SuggestionScreen> {
       child: ListTile(
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
 
-        // tap anywhere to add
         onTap: () => _showQuantityDialog(suggestion),
 
         leading: CircleAvatar(
@@ -350,14 +351,12 @@ class _SuggestionScreenState extends State<SuggestionScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
 
-            // quick add button
             IconButton(
               icon: Icon(Icons.add_circle_outline, color: Colors.green),
               onPressed: () => _showQuantityDialog(suggestion),
               tooltip: "Add to list",
             ),
 
-            // delete suggestion
             IconButton(
               icon: Icon(Icons.delete_outline, color: Colors.red.shade300),
               onPressed: () => _showDeleteDialog(suggestion),
